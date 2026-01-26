@@ -1,5 +1,6 @@
 import 'package:facilitytracker/adminScreen/admindash.dart';
 import 'package:facilitytracker/adminScreen/adminlogin.dart';
+import 'package:facilitytracker/adminScreen/adminrequests.dart';
 import 'package:facilitytracker/facilityScreen/facilitydash.dart';
 import 'package:facilitytracker/facilityScreen/requests.dart';
 import 'package:facilitytracker/mcu/sensors.dart';
@@ -17,6 +18,10 @@ class AppRouter{
       GoRoute(
         path: "/admin",
         builder: (context, state) => const AdminDashScreen(),
+      ),
+      GoRoute(
+        path: "/adminrequests",
+        builder: (context, state) => const AdminRequestsScreen(),
       ),
       GoRoute(
         path: "/facility",

@@ -1,74 +1,11 @@
 import 'dart:async';
 import 'package:http/http.dart' as http;
-import 'dart:convert';
 
 class Mcuapi {
   String apiurl = "http://192.168.4.1:5000";
 
-  // Stream that emits system status data only when it changes
-  Stream<double> getSystemStatusStream() async* {
-    double? previousValue;
-    while (true) {
-      await Future.delayed(Duration(seconds: 2));
-      try {
-        final response = await http.get(
-          Uri.parse('$apiurl/system-status'),
-        ).timeout(Duration(seconds: 1));
-        if (response.statusCode == 200) {
-          final data = json.decode(response.body);
-          final value = data['status'];
-          final currentValue = value != null ? (value as num).toDouble() : 0.0;
-          
-          // Only yield if value changed or it's the first value
-          if (previousValue == null || previousValue != currentValue) {
-            previousValue = currentValue;
-            yield currentValue;
-          }
-        } else if (previousValue == null) {
-          previousValue = 0.0;
-          yield 0.0; // First fallback value
-        }
-      } catch (e) {
-        if (previousValue == null) {
-          previousValue = 0.0;
-          yield 0.0; // First fallback value
-        }
-      }
-    }
-  }
-
-  // Stream that emits battery percentage data only when it changes
-  Stream<double> getBatteryPercentageStream() async* {
-    double? previousValue;
-    while (true) {
-      await Future.delayed(Duration(seconds: 2));
-      try {
-        final response = await http.get(
-          Uri.parse('$apiurl/battery'),
-        ).timeout(Duration(seconds: 1));
-        if (response.statusCode == 200) {
-          final data = json.decode(response.body);
-          final value = data['percentage'];
-          final currentValue = value != null ? (value as num).toDouble() : 0.0;
-          
-          if (previousValue == null || previousValue != currentValue) {
-            previousValue = currentValue;
-            yield currentValue;
-          }
-        } else if (previousValue == null) {
-          previousValue = 0.0;
-          yield 0.0;
-        }
-      } catch (e) {
-        if (previousValue == null) {
-          previousValue = 0.0;
-          yield 0.0;
-        }
-      }
-    }
-  }
-
   // Stream that emits people percentage data only when it changes
+  // Expected format: SENS|POPULATION|50
   Stream<double> getPeoplePercentageStream() async* {
     double? previousValue;
     while (true) {
@@ -78,13 +15,14 @@ class Mcuapi {
           Uri.parse('$apiurl/people'),
         ).timeout(Duration(seconds: 1));
         if (response.statusCode == 200) {
-          final data = json.decode(response.body);
-          final value = data['percentage'];
-          final currentValue = value != null ? (value as num).toDouble() : 0.0;
-          
-          if (previousValue == null || previousValue != currentValue) {
-            previousValue = currentValue;
-            yield currentValue;
+          final parts = response.body.trim().split('|');
+          if (parts.length >= 3 && parts[0] == 'SENS') {
+            final currentValue = (double.tryParse(parts[2]) ?? 0.0) / 100.0;
+            
+            if (previousValue == null || previousValue != currentValue) {
+              previousValue = currentValue;
+              yield currentValue;
+            }
           }
         } else if (previousValue == null) {
           previousValue = 0.0;
@@ -100,6 +38,7 @@ class Mcuapi {
   }
 
   // Stream that emits water percentage data only when it changes
+  // Expected format: SENS|WATER|30
   Stream<double> getWaterPercentageStream() async* {
     double? previousValue;
     while (true) {
@@ -109,13 +48,14 @@ class Mcuapi {
           Uri.parse('$apiurl/water'),
         ).timeout(Duration(seconds: 1));
         if (response.statusCode == 200) {
-          final data = json.decode(response.body);
-          final value = data['percentage'];
-          final currentValue = value != null ? (value as num).toDouble() : 0.0;
-          
-          if (previousValue == null || previousValue != currentValue) {
-            previousValue = currentValue;
-            yield currentValue;
+          final parts = response.body.trim().split('|');
+          if (parts.length >= 3 && parts[0] == 'SENS' && parts[1] == 'WATER') {
+            final currentValue = (double.tryParse(parts[2]) ?? 0.0) / 100.0;
+            
+            if (previousValue == null || previousValue != currentValue) {
+              previousValue = currentValue;
+              yield currentValue;
+            }
           }
         } else if (previousValue == null) {
           previousValue = 0.0;
@@ -129,8 +69,9 @@ class Mcuapi {
       }
     }
   }
-  
+
   // Stream that emits soap percentage data only when it changes
+  // Expected format: SENS|SOAP|20
   Stream<double> getSoapPercentageStream() async* {
     double? previousValue;
     while (true) {
@@ -140,13 +81,14 @@ class Mcuapi {
           Uri.parse('$apiurl/soap'),
         ).timeout(Duration(seconds: 1));
         if (response.statusCode == 200) {
-          final data = json.decode(response.body);
-          final value = data['percentage'];
-          final currentValue = value != null ? (value as num).toDouble() : 0.0;
-          
-          if (previousValue == null || previousValue != currentValue) {
-            previousValue = currentValue;
-            yield currentValue;
+          final parts = response.body.trim().split('|');
+          if (parts.length >= 3 && parts[0] == 'SENS' && parts[1] == 'SOAP') {
+            final currentValue = (double.tryParse(parts[2]) ?? 0.0) / 100.0;
+            
+            if (previousValue == null || previousValue != currentValue) {
+              previousValue = currentValue;
+              yield currentValue;
+            }
           }
         } else if (previousValue == null) {
           previousValue = 0.0;
@@ -154,8 +96,32 @@ class Mcuapi {
         }
       } catch (e) {
         print('Error fetching soap percentage: $e');
-        yield 0.0; // Fallback value
+        if (previousValue == null) {
+          previousValue = 0.1;
+          yield 0.1;
+        }
       }
+    }
+  }
+
+  // Send refill request
+  // Format: REQ|WATER or REQ|Soap
+  Future<bool> sendRefillRequest(String type) async {
+    try {
+      // Convert "Water Supply" to "WATER" and "Soap Supply" to "Soap"
+      final supplyType = type.contains('Water') ? 'WATER' : 'Soap';
+      final requestData = 'REQ|$supplyType';
+      
+      final response = await http.post(
+        Uri.parse('$apiurl/refill-request'),
+        headers: {'Content-Type': 'text/plain'},
+        body: requestData,
+      ).timeout(Duration(seconds: 5));
+      
+      return response.statusCode == 200 || response.statusCode == 201;
+    } catch (e) {
+      print('Error sending refill request: $e');
+      return false;
     }
   }
 }

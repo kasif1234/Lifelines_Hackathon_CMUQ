@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:video_player/video_player.dart';
 import 'package:facilitytracker/mcu/api.dart';
+import 'package:facilitytracker/models/requests_manager.dart';
 import 'dart:async';
 
 
@@ -91,7 +92,7 @@ class _FacilityDashScreenState extends State<FacilityDashScreen> with SingleTick
     final isPhone = screenWidth < 800;
     final isTablet = screenWidth >= 800 && screenWidth < 1200;
   
-    final primaryColor = Color.fromARGB(255, 16, 134, 185); // Emerald
+    final primaryColor = Color.fromARGB(255, 16, 134, 185); 
     final warningColor = Color(0xFFF59E0B); // Amber
     final lowColor = Color(0xFFEF4444); // Red
     
@@ -99,7 +100,7 @@ class _FacilityDashScreenState extends State<FacilityDashScreen> with SingleTick
     
     return Stack(
       children: [
-        // Video Background
+        
         if (_isVideoInitialized)
           Positioned.fill(
             child: FittedBox(
@@ -111,13 +112,13 @@ class _FacilityDashScreenState extends State<FacilityDashScreen> with SingleTick
               ),
             ),
           ),
-        // Overlay to make content readable
+       
         Positioned.fill(
           child: Container(
             color: Colors.white.withOpacity(0.3),
           ),
         ),
-        // Main content
+       
         Scaffold(
         backgroundColor: Colors.transparent,
       appBar: AppBar(
@@ -300,26 +301,46 @@ class _FacilityDashScreenState extends State<FacilityDashScreen> with SingleTick
                                       : SizedBox.shrink(),
                                   title == "Water Supply" || title == "Soap Supply"
                                       ? TextButton(
-                                        onPressed: (){
-                                          // Show a notification saying it has been requested
-                                          ScaffoldMessenger.of(context).showSnackBar(
-                                            SnackBar(
-                                              content: Text('$title refill requested!'),
-                                              duration: Duration(seconds: 4),
-                                              behavior: SnackBarBehavior.floating,
-                                              backgroundColor: Colors.green,
-                                              
-                                              margin: EdgeInsets.only(
-                                                bottom: MediaQuery.of(context).size.height - 150,
-                                                right: 20,
-                                                left: MediaQuery.of(context).size.width - 320,
-
+                                        onPressed: () async {
+                                          // Send refill request to server
+                                          final success = await _api.sendRefillRequest(title);
+                                          
+                                          if (success) {
+                                            // Add request to local RequestsManager
+                                            RequestsManager().addRequest(title);
+                                            
+                                            // Show success notification
+                                            ScaffoldMessenger.of(context).showSnackBar(
+                                              SnackBar(
+                                                content: Text('$title refill requested!'),
+                                                duration: Duration(seconds: 4),
+                                                behavior: SnackBarBehavior.floating,
+                                                backgroundColor: Colors.green,
+                                                
+                                                margin: EdgeInsets.only(
+                                                  bottom: MediaQuery.of(context).size.height - 150,
+                                                  right: 20,
+                                                  left: MediaQuery.of(context).size.width - 320,
+                                                ),
                                               ),
-                                            ),
-                                          );
-
-
-
+                                            );
+                                          } else {
+                                            // Show error notification
+                                            ScaffoldMessenger.of(context).showSnackBar(
+                                              SnackBar(
+                                                content: Text('Failed to send request. Try again.'),
+                                                duration: Duration(seconds: 3),
+                                                behavior: SnackBarBehavior.floating,
+                                                backgroundColor: Colors.red,
+                                                
+                                                margin: EdgeInsets.only(
+                                                  bottom: MediaQuery.of(context).size.height - 150,
+                                                  right: 20,
+                                                  left: MediaQuery.of(context).size.width - 320,
+                                                ),
+                                              ),
+                                            );
+                                          }
                                         }, 
                                         child: Text("Request Refill"),
                                         style: TextButton.styleFrom(
@@ -378,6 +399,17 @@ class _FacilityDashScreenState extends State<FacilityDashScreen> with SingleTick
                                   childAspectRatio: 2.2,
                                 ),
                                 itemBuilder: (context, index) {
+                                  // Determine sanitation status
+                                  String sanitationStatus;
+                                  
+                                  if (index == 0) {
+                                    // Restroom 1 - dynamic data from API
+                                    sanitationStatus = systemStatus > 0.5 ? 'Clean' : 'Due for cleaning';
+                                  } else {
+                                    // Restrooms 2-4 - static data
+                                    sanitationStatus = 'No cleaning required';
+                                  }
+                                  
                                   return Container(
                                     decoration: BoxDecoration(
                                       color: cardBg,
@@ -409,7 +441,7 @@ class _FacilityDashScreenState extends State<FacilityDashScreen> with SingleTick
                                             ),
                                             SizedBox(height: 4),
                                             Text(
-                                              'Soap: Sufficient\nAction: Cleaned 1 hour ago',
+                                              'Sanitation: $sanitationStatus',
                                               style: GoogleFonts.poppins(
                                                 fontSize: 14,
                                                 color: Color(0xFF6B7280),
@@ -418,7 +450,26 @@ class _FacilityDashScreenState extends State<FacilityDashScreen> with SingleTick
                                             SizedBox(height: 20),
                                             Center(
                                               child: TextButton(
-                                                onPressed: () {}, 
+                                                onPressed: () {
+                                                  ScaffoldMessenger.of(context).showSnackBar(
+                                                    SnackBar(
+                                                      content: Text('Restroom ${index + 1} marked as cleaned!', style: GoogleFonts.poppins(
+                                                        color: Colors.white,
+                                                      ),),
+                                                      duration: Duration(seconds: 3),
+                                                      behavior: SnackBarBehavior.floating,
+                                                      backgroundColor: Colors.green,
+                                                      
+                                                      margin: EdgeInsets.only(
+                                                        bottom: MediaQuery.of(context).size.height - 150,
+                                                        right: 20,
+                                                        left: MediaQuery.of(context).size.width - 320,
+
+                                                      ),
+                                                    ),
+                                                  );
+
+                                                }, 
                                                 style: TextButton.styleFrom(
                                                   backgroundColor: Colors.green,
                                                   foregroundColor: Colors.white,

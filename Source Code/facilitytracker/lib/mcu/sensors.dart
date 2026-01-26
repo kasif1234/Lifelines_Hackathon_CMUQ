@@ -59,12 +59,12 @@ class SensorsDataScreen extends StatelessWidget {
                             padding: EdgeInsets.all(20),
                             shrinkWrap: true,
                             physics: NeverScrollableScrollPhysics(),
-                            itemCount: 5,
+                            itemCount: 4,
                             gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                              crossAxisCount: isPhone ? 2 : (isTablet ? 2 :  5),
+                              crossAxisCount: isPhone ? 1 : (isTablet ? 2 :  4),
                               mainAxisSpacing: 20,
                               crossAxisSpacing: 30,
-                              childAspectRatio: 0.6,
+                              childAspectRatio: 0.75,
                             ),
                             itemBuilder: (context, index) {
                               final items = [
@@ -81,9 +81,9 @@ class SensorsDataScreen extends StatelessWidget {
                                   'isMultiRoom': false,
                                 },
                                 {
-                                  'title': 'Main Soap Supply Sensor', 
+                                  'title': 'Soap Supply Sensor', 
                                   'icon': Icons.soap,
-                                  'status': 'Inactive',
+                                  'status': 'Active',
                                   'isMultiRoom': false,
                                 },
                                 {
@@ -98,18 +98,7 @@ class SensorsDataScreen extends StatelessWidget {
                                     {'name': 'Restroom 4', 'status': 'Active'},
                                   ],
                                 },
-                                {
-                                  'title': 'Soap Dispenser Sensors',
-                                  'icon': Icons.sanitizer, 
-                                  'status': 'Active',
-                                  'isMultiRoom': true,
-                                  'rooms': [
-                                    {'name': 'Restroom 1', 'status': 'Active'},
-                                    {'name': 'Restroom 2', 'status': 'Inactive'},
-                                    {'name': 'Restroom 3', 'status': 'Active'},
-                                    {'name': 'Restroom 4', 'status': 'Inactive'},
-                                  ],
-                                },
+                               
                                 
                               ];
                               
@@ -135,9 +124,10 @@ class SensorsDataScreen extends StatelessWidget {
                                 ),
                                 padding: EdgeInsets.all(16),
                                 child: Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  mainAxisAlignment: MainAxisAlignment.start,
+                                  crossAxisAlignment: CrossAxisAlignment.center,
                                   children: [
-                                    // Icon with circular background
+                                    SizedBox(height: 8),
                                     Container(
                                       width: 80,
                                       height: 80,
@@ -153,7 +143,7 @@ class SensorsDataScreen extends StatelessWidget {
                                         color: status == 'Active' ? activeColor : inactiveColor,
                                       ),
                                     ),
-                                    SizedBox(height: 12),
+                                    SizedBox(height: 20),
                                     // Title
                                     Text(
                                       title,
@@ -164,7 +154,7 @@ class SensorsDataScreen extends StatelessWidget {
                                         color: Color(0xFF64748B),
                                       ),
                                     ),
-                                    SizedBox(height: 8),
+                                    SizedBox(height: 20),
                                     
                                     
                                     if (!isMultiRoom) ...[
