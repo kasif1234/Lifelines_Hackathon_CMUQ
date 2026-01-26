@@ -129,7 +129,7 @@ class Mcuapi {
       }
     }
   }
-
+  
   // Stream that emits soap percentage data only when it changes
   Stream<double> getSoapPercentageStream() async* {
     double? previousValue;

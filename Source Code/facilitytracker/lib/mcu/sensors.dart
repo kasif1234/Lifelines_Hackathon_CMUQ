@@ -10,12 +10,14 @@ class SensorsDataScreen extends StatelessWidget {
     final screenWidth = MediaQuery.of(context).size.width;
     final isPhone = screenWidth < 800;
     final primaryColor = Color.fromARGB(255, 16, 134, 185);
+    final isTablet = screenWidth >= 800 && screenWidth < 1200;
+    final cardBg = Colors.white;
 
     return Scaffold(
           backgroundColor: Colors.white,
           appBar: AppBar(
             title: Text(
-              "Sensors Data",
+              "Sensors Status",
               style: GoogleFonts.jetBrainsMono(
                 fontSize: 24,
                 fontWeight: FontWeight.w600,
@@ -50,14 +52,194 @@ class SensorsDataScreen extends StatelessWidget {
               children: [
                 if (!isPhone) Sidebar(),
                 Expanded(
-                  child: Center(
-                    child: Text(
-                      "Sensors Data",
-                      style: GoogleFonts.jetBrainsMono(
-                        fontSize: 24,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
+                  child: SingleChildScrollView(
+                    child: Padding(
+                          padding: const EdgeInsets.all(28.0),
+                          child: GridView.builder(
+                            padding: EdgeInsets.all(20),
+                            shrinkWrap: true,
+                            physics: NeverScrollableScrollPhysics(),
+                            itemCount: 5,
+                            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                              crossAxisCount: isPhone ? 2 : (isTablet ? 2 :  5),
+                              mainAxisSpacing: 20,
+                              crossAxisSpacing: 30,
+                              childAspectRatio: 0.6,
+                            ),
+                            itemBuilder: (context, index) {
+                              final items = [
+                                {
+                                  'title': 'Population Sensor',
+                                  'icon': Icons.people, 
+                                  'status': 'Active',
+                                  'isMultiRoom': false,
+                                },
+                                {
+                                  'title': 'Water Tank Sensor', 
+                                  'icon': Icons.water_drop,
+                                  'status': 'Active',
+                                  'isMultiRoom': false,
+                                },
+                                {
+                                  'title': 'Main Soap Supply Sensor', 
+                                  'icon': Icons.soap,
+                                  'status': 'Inactive',
+                                  'isMultiRoom': false,
+                                },
+                                {
+                                  'title': 'Toilet Access Sensors', 
+                                  'icon': Icons.wc,
+                                  'status': 'Active',
+                                  'isMultiRoom': true,
+                                  'rooms': [
+                                    {'name': 'Restroom 1', 'status': 'Active'},
+                                    {'name': 'Restroom 2', 'status': 'Active'},
+                                    {'name': 'Restroom 3', 'status': 'Inactive'},
+                                    {'name': 'Restroom 4', 'status': 'Active'},
+                                  ],
+                                },
+                                {
+                                  'title': 'Soap Dispenser Sensors',
+                                  'icon': Icons.sanitizer, 
+                                  'status': 'Active',
+                                  'isMultiRoom': true,
+                                  'rooms': [
+                                    {'name': 'Restroom 1', 'status': 'Active'},
+                                    {'name': 'Restroom 2', 'status': 'Inactive'},
+                                    {'name': 'Restroom 3', 'status': 'Active'},
+                                    {'name': 'Restroom 4', 'status': 'Inactive'},
+                                  ],
+                                },
+                                
+                              ];
+                              
+                              var title = items[index]['title'] as String;
+                              var icon = items[index]['icon'] as IconData;
+                              var status = items[index]['status'] as String;
+                              var isMultiRoom = items[index]['isMultiRoom'] as bool;
+                              
+                              final activeColor = Color.fromARGB(255, 16, 134, 185);
+                              final inactiveColor = Color(0xFFEF4444);
+                              
+                              return Container(
+                                decoration: BoxDecoration(
+                                  color: cardBg,
+                                  borderRadius: BorderRadius.circular(16),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: primaryColor.withOpacity(0.1),
+                                      blurRadius: 20,
+                                      offset: Offset(0, 4),
+                                    ),
+                                  ],
+                                ),
+                                padding: EdgeInsets.all(16),
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    // Icon with circular background
+                                    Container(
+                                      width: 80,
+                                      height: 80,
+                                      decoration: BoxDecoration(
+                                        color: status == 'Active' 
+                                            ? activeColor.withOpacity(0.1)
+                                            : inactiveColor.withOpacity(0.1),
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: Icon(
+                                        icon,
+                                        size: 36,
+                                        color: status == 'Active' ? activeColor : inactiveColor,
+                                      ),
+                                    ),
+                                    SizedBox(height: 12),
+                                    // Title
+                                    Text(
+                                      title,
+                                      textAlign: TextAlign.center,
+                                      style: GoogleFonts.poppins(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w500,
+                                        color: Color(0xFF64748B),
+                                      ),
+                                    ),
+                                    SizedBox(height: 8),
+                                    
+                                    
+                                    if (!isMultiRoom) ...[
+                                      
+                                      Container(
+                                        padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                        decoration: BoxDecoration(
+                                          color: status == 'Active' 
+                                              ? activeColor.withOpacity(0.1)
+                                              : inactiveColor.withOpacity(0.1),
+                                          borderRadius: BorderRadius.circular(20),
+                                        ),
+                                        child: Text(
+                                          status,
+                                          style: GoogleFonts.poppins(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.bold,
+                                            color: status == 'Active' ? activeColor : inactiveColor,
+                                          ),
+                                        ),
+                                      ),
+                                    ] else ...[
+                                      // Multi-room sensors
+                                      SizedBox(height: 8),
+                                      Column(
+                                        children: (items[index]['rooms'] as List<Map<String, String>>).map((room) {
+                                          final roomStatus = room['status']!;
+                                          return Padding(
+                                            padding: const EdgeInsets.symmetric(vertical: 4),
+                                            child: Row(
+                                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                              children: [
+                                                Expanded(
+                                                  child: Text(
+                                                    room['name']!,
+                                                    style: GoogleFonts.poppins(
+                                                      fontSize: 13,
+                                                      color: Color(0xFF64748B),
+                                                    ),
+                                                  ),
+                                                ),
+                                                Container(
+                                                  width: 10,
+                                                  height: 10,
+                                                  decoration: BoxDecoration(
+                                                    color: roomStatus == 'Active' 
+                                                        ? activeColor
+                                                        : inactiveColor,
+                                                    shape: BoxShape.circle,
+                                                  ),
+                                                ),
+                                                SizedBox(width: 4),
+                                                Text(
+                                                  roomStatus,
+                                                  style: GoogleFonts.poppins(
+                                                    fontSize: 10,
+                                                    fontWeight: FontWeight.w600,
+                                                    color: roomStatus == 'Active' 
+                                                        ? activeColor
+                                                        : inactiveColor,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          );
+                                        }).toList(),
+                                      ),
+                                    ],
+                                    
+                                  ],
+                                ),
+                              );
+                            }
+                          ),
+                        ),
                   ),
                 ),
               ],
