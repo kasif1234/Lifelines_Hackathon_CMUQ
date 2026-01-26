@@ -144,7 +144,6 @@ class SensorsDataScreen extends StatelessWidget {
                                       ),
                                     ),
                                     SizedBox(height: 20),
-                                    // Title
                                     Text(
                                       title,
                                       textAlign: TextAlign.center,
@@ -177,7 +176,7 @@ class SensorsDataScreen extends StatelessWidget {
                                         ),
                                       ),
                                     ] else ...[
-                                      // Multi-room sensors
+
                                       SizedBox(height: 8),
                                       Column(
                                         children: (items[index]['rooms'] as List<Map<String, String>>).map((room) {

@@ -1,7 +1,6 @@
 import 'package:facilitytracker/widgets/sidebar_admin.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:facilitytracker/mcu/api.dart';
 
 class AdminRequestsScreen extends StatefulWidget {
   const AdminRequestsScreen({super.key});
@@ -11,9 +10,8 @@ class AdminRequestsScreen extends StatefulWidget {
 }
 
 class _AdminRequestsScreenState extends State<AdminRequestsScreen> {
-  final Mcuapi _api = Mcuapi();
   List<Map<String, dynamic>> requests = [];
-  bool isLoading = true;
+  bool isLoading = false;
 
   @override
   void initState() {
@@ -21,15 +19,22 @@ class _AdminRequestsScreenState extends State<AdminRequestsScreen> {
     _loadRequests();
   }
 
-  Future<void> _loadRequests() async {
+  void _loadRequests() {
     setState(() {
-      isLoading = true;
-    });
-    
-    final fetchedRequests = await _api.getFacilityRequests();
-    
-    setState(() {
-      requests = fetchedRequests;
+      requests = [
+        {
+          'facility': 'Facility 1',
+          'type': 'Water Supply',
+          'time': '1:41 AM',
+          'status': 'Pending',
+        },
+        {
+          'facility': 'Facility 1',
+          'type': 'Soap Supply',
+          'time': '1:41 AM',
+          'status': 'Pending',
+        },
+      ];
       isLoading = false;
     });
   }
@@ -243,14 +248,7 @@ class _AdminRequestsScreenState extends State<AdminRequestsScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              "Facility Requests",
-                              style: GoogleFonts.poppins(
-                                fontSize: 28,
-                                fontWeight: FontWeight.bold,
-                                color: primaryColor,
-                              ),
-                            ),
+                           
                             SizedBox(height: 8),
                             Text(
                               "View and manage requests from all facilities",
@@ -261,7 +259,6 @@ class _AdminRequestsScreenState extends State<AdminRequestsScreen> {
                             ),
                             SizedBox(height: 24),
                             
-                            // Requests grid
                             requests.isEmpty
                                 ? Container(
                                     padding: EdgeInsets.all(48),
@@ -301,114 +298,136 @@ class _AdminRequestsScreenState extends State<AdminRequestsScreen> {
                                       ),
                                     ),
                                   )
-                                : GridView.builder(
+                                : ListView.builder(
                                     shrinkWrap: true,
                                     physics: NeverScrollableScrollPhysics(),
-                                    padding: EdgeInsets.all(20),
                                     itemCount: requests.length,
-                                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                                      crossAxisCount: isPhone ? 1 : (isTablet ? 2 : 3),
-                                      mainAxisSpacing: 20,
-                                      crossAxisSpacing: 20,
-                                      childAspectRatio: 1.3,
-                                    ),
                                     itemBuilder: (context, index) {
                                       final request = requests[index];
                                       final isPending = request['status'] == 'Pending';
                                       
-                                      return GestureDetector(
-                                        onTap: () => _showRequestDialog(request, index),
-                                        child: Container(
-                                          decoration: BoxDecoration(
-                                            color: cardBg,
-                                            borderRadius: BorderRadius.circular(16),
-                                            border: Border.all(
-                                              color: Color(0xFFE2E8F0),
-                                              width: 2,
-                                            ),
-                                            boxShadow: [
-                                              BoxShadow(
-                                                color: primaryColor.withOpacity(0.1),
-                                                blurRadius: 20,
-                                                offset: Offset(0, 4),
-                                              ),
-                                            ],
+                                      return Container(
+                                        margin: EdgeInsets.only(bottom: 16),
+                                        decoration: BoxDecoration(
+                                          color: cardBg,
+                                          borderRadius: BorderRadius.circular(16),
+                                          border: Border.all(
+                                            color: Color(0xFFE2E8F0),
+                                            width: 2,
                                           ),
-                                          padding: EdgeInsets.all(20),
-                                          child: Column(
-                                            mainAxisAlignment: MainAxisAlignment.center,
-                                            children: [
-                                              Container(
-                                                width: 64,
-                                                height: 64,
-                                                decoration: BoxDecoration(
-                                                  color: request['type'] == 'Water Supply'
-                                                      ? Colors.blue.withOpacity(0.1)
-                                                      : Colors.purple.withOpacity(0.1),
-                                                  shape: BoxShape.circle,
-                                                ),
-                                                child: Icon(
-                                                  request['type'] == 'Water Supply'
-                                                      ? Icons.water_drop
-                                                      : Icons.soap,
-                                                  color: request['type'] == 'Water Supply'
-                                                      ? Colors.blue
-                                                      : Colors.purple,
-                                                  size: 32,
-                                                ),
+                                          boxShadow: [
+                                            BoxShadow(
+                                              color: primaryColor.withOpacity(0.1),
+                                              blurRadius: 10,
+                                              offset: Offset(0, 2),
+                                            ),
+                                          ],
+                                        ),
+                                        padding: EdgeInsets.all(20),
+                                        child: Row(
+                                          children: [
+                                            Container(
+                                              width: 56,
+                                              height: 56,
+                                              decoration: BoxDecoration(
+                                                color: request['type'] == 'Water Supply'
+                                                    ? Colors.blue.withOpacity(0.1)
+                                                    : Colors.purple.withOpacity(0.1),
+                                                borderRadius: BorderRadius.circular(12),
                                               ),
-                                              SizedBox(height: 16),
-                                              Text(
-                                                request['facility'] ?? 'Unknown Facility',
-                                                style: GoogleFonts.poppins(
-                                                  fontSize: 16,
-                                                  fontWeight: FontWeight.w600,
-                                                  color: Color(0xFF1E293B),
-                                                ),
-                                                textAlign: TextAlign.center,
+                                              child: Icon(
+                                                request['type'] == 'Water Supply'
+                                                    ? Icons.water_drop
+                                                    : Icons.soap,
+                                                color: request['type'] == 'Water Supply'
+                                                    ? Colors.blue
+                                                    : Colors.purple,
+                                                size: 28,
                                               ),
-                                              SizedBox(height: 4),
-                                              Text(
-                                                request['type'] ?? 'Unknown',
-                                                style: GoogleFonts.poppins(
-                                                  fontSize: 14,
-                                                  color: Color(0xFF64748B),
-                                                ),
-                                                textAlign: TextAlign.center,
+                                            ),
+                                            SizedBox(width: 16),
+                                            Expanded(
+                                              child: Column(
+                                                crossAxisAlignment: CrossAxisAlignment.start,
+                                                children: [
+                                                  Text(
+                                                    request['facility'] ?? 'Unknown Facility',
+                                                    style: GoogleFonts.poppins(
+                                                      fontSize: 18,
+                                                      fontWeight: FontWeight.w600,
+                                                      color: Color(0xFF1E293B),
+                                                    ),
+                                                  ),
+                                                  SizedBox(height: 4),
+                                                  Text(
+                                                    request['type'] ?? 'Unknown',
+                                                    style: GoogleFonts.poppins(
+                                                      fontSize: 14,
+                                                      color: Color(0xFF64748B),
+                                                    ),
+                                                  ),
+                                                  SizedBox(height: 4),
+                                                  Text(
+                                                    request['time'] ?? 'N/A',
+                                                    style: GoogleFonts.poppins(
+                                                      fontSize: 12,
+                                                      color: Color(0xFF94A3B8),
+                                                    ),
+                                                  ),
+                                                ],
                                               ),
-                                              SizedBox(height: 12),
-                                              Container(
-                                                padding: EdgeInsets.symmetric(
-                                                  horizontal: 12,
-                                                  vertical: 6,
-                                                ),
-                                                decoration: BoxDecoration(
-                                                  color: isPending
-                                                      ? Color(0xFFF59E0B).withOpacity(0.1)
-                                                      : primaryColor.withOpacity(0.1),
-                                                  borderRadius: BorderRadius.circular(20),
-                                                ),
-                                                child: Text(
-                                                  request['status'] ?? 'Pending',
-                                                  style: GoogleFonts.poppins(
-                                                    fontSize: 12,
-                                                    fontWeight: FontWeight.w600,
+                                            ),
+                                            SizedBox(width: 16),
+                                            Column(
+                                              crossAxisAlignment: CrossAxisAlignment.end,
+                                              children: [
+                                                Container(
+                                                  padding: EdgeInsets.symmetric(
+                                                    horizontal: 12,
+                                                    vertical: 6,
+                                                  ),
+                                                  decoration: BoxDecoration(
                                                     color: isPending
-                                                        ? Color(0xFFF59E0B)
-                                                        : primaryColor,
+                                                        ? Color(0xFFF59E0B).withOpacity(0.1)
+                                                        : primaryColor.withOpacity(0.1),
+                                                    borderRadius: BorderRadius.circular(20),
+                                                  ),
+                                                  child: Text(
+                                                    request['status'] ?? 'Pending',
+                                                    style: GoogleFonts.poppins(
+                                                      fontSize: 12,
+                                                      fontWeight: FontWeight.w600,
+                                                      color: isPending
+                                                          ? Color(0xFFF59E0B)
+                                                          : primaryColor,
+                                                    ),
                                                   ),
                                                 ),
-                                              ),
-                                              SizedBox(height: 8),
-                                              Text(
-                                                request['time'] ?? 'N/A',
-                                                style: GoogleFonts.poppins(
-                                                  fontSize: 12,
-                                                  color: Color(0xFF94A3B8),
+                                                SizedBox(height: 12),
+                                                ElevatedButton(
+                                                  onPressed: () => _acceptRequest(index),
+                                                  style: ElevatedButton.styleFrom(
+                                                    backgroundColor: Colors.green,
+                                                    foregroundColor: Colors.white,
+                                                    padding: EdgeInsets.symmetric(
+                                                      horizontal: 20,
+                                                      vertical: 10,
+                                                    ),
+                                                    shape: RoundedRectangleBorder(
+                                                      borderRadius: BorderRadius.circular(8),
+                                                    ),
+                                                  ),
+                                                  child: Text(
+                                                    'Accept',
+                                                    style: GoogleFonts.poppins(
+                                                      fontSize: 14,
+                                                      fontWeight: FontWeight.w600,
+                                                    ),
+                                                  ),
                                                 ),
-                                              ),
-                                            ],
-                                          ),
+                                              ],
+                                            ),
+                                          ],
                                         ),
                                       );
                                     },

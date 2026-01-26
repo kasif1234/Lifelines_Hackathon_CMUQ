@@ -12,8 +12,7 @@ class RequestsScreen extends StatefulWidget {
 
 class _RequestsScreenState extends State<RequestsScreen> {
   final RequestsManager _requestsManager = RequestsManager();
-  
-  // Sample daily tasks
+
   List<Map<String, dynamic>> dailyTasks = [
     {'title': 'Check supply of water to restrooms', 'done': false, 'time': '9:00 AM'},
     {'title': 'Inspect soap dispensers in restrooms', 'done': false, 'time': '10:00 AM'},
@@ -48,7 +47,7 @@ class _RequestsScreenState extends State<RequestsScreen> {
           backgroundColor: Colors.white,
           appBar: AppBar(
             title: Text(
-              "Requests",
+              "Tasks & Requests",
               style: GoogleFonts.jetBrainsMono(
                 fontSize: 24,
                 fontWeight: FontWeight.w600,
@@ -89,7 +88,6 @@ class _RequestsScreenState extends State<RequestsScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          // Daily Tasks Section
                           Text(
                             "Daily Tasks",
                             style: GoogleFonts.poppins(

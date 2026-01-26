@@ -14,74 +14,66 @@ class AdminDashScreen extends StatefulWidget {
 class _AdminDashScreenState extends State<AdminDashScreen> {
   final Mcuapi _api = Mcuapi();
   
-  // Facility 1 dynamic data from API
-  double facility1WaterPercentage = 0.0;
-  double facility1SoapPercentage = 0.0;
-  int facility1Requests = 0;
+  double facility1WaterPercentage = 0.97;
+  double facility1SoapPercentage = 0.99;
+  double facility1PeoplePercentage = 0.10;
   
-  // Stream subscriptions
-  StreamSubscription<double>? _waterSubscription;
-  StreamSubscription<double>? _soapSubscription;
+  int _timerTicks = 0;
+  Timer? _simulationTimer;
   
-  // Static data for facilities 2, 3, 4
   List<Map<String, dynamic>> staticFacilities = [
     {
       'name': 'Facility 2',
       'zone': 'Zone A',
+      'peoplePercentage': 0.60,
       'waterPercentage': 0.45,
       'soapPercentage': 0.30,
-      'requests': 1,
     },
     {
       'name': 'Facility 3',
       'zone': 'Zone B',
+      'peoplePercentage': 0.35,
       'waterPercentage': 0.90,
       'soapPercentage': 0.85,
-      'requests': 0,
     },
     {
       'name': 'Facility 4',
       'zone': 'Zone B',
+      'peoplePercentage': 0.75,
       'waterPercentage': 0.20,
       'soapPercentage': 0.15,
-      'requests': 3,
     },
   ];
 
   @override
   void initState() {
     super.initState();
-    
-    // Subscribe to API streams for Facility 1
-    _waterSubscription = _api.getWaterPercentageStream().listen((value) {
+    _startValueSimulation();
+  }
+  
+  void _startValueSimulation() {
+    _simulationTimer = Timer.periodic(Duration(seconds: 5), (timer) {
       setState(() {
-        facility1WaterPercentage = value;
+        _timerTicks++;
+        
+        facility1PeoplePercentage = (facility1PeoplePercentage + 0.02).clamp(0.0, 1.0);
+        if (facility1PeoplePercentage > 0.98) facility1PeoplePercentage = 0.10;
+        
+        facility1WaterPercentage = (facility1WaterPercentage - 0.01).clamp(0.0, 1.0);
+        if (facility1WaterPercentage < 0.05) facility1WaterPercentage = 1.0;
+        
+        if (_timerTicks % 2 == 0) {
+          facility1SoapPercentage = (facility1SoapPercentage - 0.01).clamp(0.0, 1.0);
+          if (facility1SoapPercentage < 0.05) facility1SoapPercentage = 1.0;
+        }
       });
     });
-    
-    _soapSubscription = _api.getSoapPercentageStream().listen((value) {
-      setState(() {
-        facility1SoapPercentage = value;
-      });
-    });
-    
-    // Load facility 1 requests
-    _loadFacility1Requests();
   }
 
   @override
   void dispose() {
-    _waterSubscription?.cancel();
-    _soapSubscription?.cancel();
+    _simulationTimer?.cancel();
     super.dispose();
-  }
-
-  Future<void> _loadFacility1Requests() async {
-    final requests = await _api.getFacilityRequests();
-    setState(() {
-      
-      facility1Requests = requests.length;
-    });
   }
 
   List<Map<String, dynamic>> get allFacilities {
@@ -89,9 +81,9 @@ class _AdminDashScreenState extends State<AdminDashScreen> {
       {
         'name': 'Facility 1',
         'zone': 'Zone A',
+        'peoplePercentage': facility1PeoplePercentage,
         'waterPercentage': facility1WaterPercentage,
         'soapPercentage': facility1SoapPercentage,
-        'requests': facility1Requests,
       },
       ...staticFacilities,
     ];
@@ -169,13 +161,13 @@ class _AdminDashScreenState extends State<AdminDashScreen> {
                           ),
                           SizedBox(height: 24),
                           
-                          // Facilities list
                           ListView.builder(
                             shrinkWrap: true,
                             physics: NeverScrollableScrollPhysics(),
                             itemCount: allFacilities.length,
                             itemBuilder: (context, index) {
                               final facility = allFacilities[index];
+                              final peoplePercent = (facility['peoplePercentage'] as double) * 100;
                               final waterPercent = (facility['waterPercentage'] as double) * 100;
                               final soapPercent = (facility['soapPercentage'] as double) * 100;
                               
@@ -244,33 +236,57 @@ class _AdminDashScreenState extends State<AdminDashScreen> {
                                             ],
                                           ),
                                         ),
-                                        if (facility['requests'] > 0)
-                                          Container(
-                                            padding: EdgeInsets.symmetric(
-                                              horizontal: 12,
-                                              vertical: 6,
-                                            ),
-                                            decoration: BoxDecoration(
-                                              color: lowColor.withOpacity(0.1),
-                                              borderRadius: BorderRadius.circular(20),
-                                            ),
-                                            child: Text(
-                                              '${facility['requests']} Requests',
-                                              style: GoogleFonts.poppins(
-                                                fontSize: 12,
-                                                fontWeight: FontWeight.w600,
-                                                color: lowColor,
-                                              ),
-                                            ),
-                                          ),
                                       ],
                                     ),
                                     SizedBox(height: 20),
                                     
-                                    // Supply status row
                                     Row(
                                       children: [
-                                        // Water supply
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              Row(
+                                                children: [
+                                                  Icon(
+                                                    Icons.group,
+                                                    size: 16,
+                                                    color: Color(0xFF64748B),
+                                                  ),
+                                                  SizedBox(width: 4),
+                                                  Text(
+                                                    'Population',
+                                                    style: GoogleFonts.poppins(
+                                                      fontSize: 12,
+                                                      color: Color(0xFF64748B),
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                              SizedBox(height: 8),
+                                              LinearProgressIndicator(
+                                                value: facility['peoplePercentage'] as double,
+                                                backgroundColor: Color(0xFFE2E8F0),
+                                                valueColor: AlwaysStoppedAnimation<Color>(
+                                                  peoplePercent > 80 ? warningColor : (peoplePercent > 90 ? lowColor : primaryColor),
+                                                ),
+                                                minHeight: 8,
+                                                borderRadius: BorderRadius.circular(4),
+                                              ),
+                                              SizedBox(height: 4),
+                                              Text(
+                                                '${peoplePercent.toInt()}%',
+                                                style: GoogleFonts.poppins(
+                                                  fontSize: 16,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: peoplePercent > 80 ? warningColor : (peoplePercent > 90 ? lowColor : primaryColor),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                        SizedBox(width: 24),
+                                        
                                         Expanded(
                                           child: Column(
                                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -316,7 +332,6 @@ class _AdminDashScreenState extends State<AdminDashScreen> {
                                         ),
                                         SizedBox(width: 24),
                                         
-                                        // Soap supply
                                         Expanded(
                                           child: Column(
                                             crossAxisAlignment: CrossAxisAlignment.start,

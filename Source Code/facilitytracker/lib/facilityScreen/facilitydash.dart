@@ -20,23 +20,29 @@ class _FacilityDashScreenState extends State<FacilityDashScreen> with SingleTick
   
   bool _isVideoInitialized = false;
   
-  // State variables to hold live data
   double peoplePercentage = 0.0;
-  double waterPercentage = 0.0;
-  double soapPercentage = 0.0;
-  double systemStatus = 0.0;
+  double waterPercentage = 1.0;
+  double soapPercentage = 1.0;
   
-  // Stream subscriptions
+  int maxCapacity = 200;
+  int _timerTicks = 0;
+  
+  Timer? _simulationTimer;
+  
+  List<String> sanitationStatuses = [
+    'Due for cleaning',
+    'Clean',
+    'Clean',
+    'Due for cleaning'
+  ];
+  
   StreamSubscription<double>? _peopleSubscription;
   StreamSubscription<double>? _waterSubscription;
   StreamSubscription<double>? _soapSubscription;
-  StreamSubscription<double>? _systemSubscription;
 
   @override
   void initState() {
     super.initState();
-    
-    // Initialize video controller
     
     _videoController = VideoPlayerController.asset('assets/POCDemo.mp4')
       ..initialize().then((_) {
@@ -50,7 +56,8 @@ class _FacilityDashScreenState extends State<FacilityDashScreen> with SingleTick
         print('Video initialization error: $error');
       });
     
-    // Subscribe to data streams
+    _startValueSimulation();
+    
     _peopleSubscription = _api.getPeoplePercentageStream().listen((value) {
       setState(() {
         peoplePercentage = value;
@@ -68,10 +75,23 @@ class _FacilityDashScreenState extends State<FacilityDashScreen> with SingleTick
         soapPercentage = value;
       });
     });
-    
-    _systemSubscription = _api.getSystemStatusStream().listen((value) {
+  }
+  
+  void _startValueSimulation() {
+    _simulationTimer = Timer.periodic(Duration(seconds: 5), (timer) {
       setState(() {
-        systemStatus = value;
+        _timerTicks++;
+        
+        peoplePercentage = (peoplePercentage + 0.02).clamp(0.0, 1.0);
+        if (peoplePercentage > 0.98) peoplePercentage = 0.10;
+        
+        waterPercentage = (waterPercentage - 0.01).clamp(0.0, 1.0);
+        if (waterPercentage < 0.05) waterPercentage = 1.0;
+        
+        if (_timerTicks % 2 == 0) {
+          soapPercentage = (soapPercentage - 0.01).clamp(0.0, 1.0);
+          if (soapPercentage < 0.05) soapPercentage = 1.0;
+        }
       });
     });
   }
@@ -79,10 +99,10 @@ class _FacilityDashScreenState extends State<FacilityDashScreen> with SingleTick
   @override
   void dispose() {
     _videoController.dispose();
+    _simulationTimer?.cancel();
     _peopleSubscription?.cancel();
     _waterSubscription?.cancel();
     _soapSubscription?.cancel();
-    _systemSubscription?.cancel();
     super.dispose();
   }
 
@@ -169,7 +189,7 @@ class _FacilityDashScreenState extends State<FacilityDashScreen> with SingleTick
                         child: Row(
                           children: [
                             Text(
-                                              'Zone A - Facility 3',
+                                              'Zone A - Facility 1',
                                               style: GoogleFonts.poppins(
                                                 fontSize: 16,
                                                 color: Color(0xFF94A3B8),
@@ -187,12 +207,12 @@ class _FacilityDashScreenState extends State<FacilityDashScreen> with SingleTick
                             padding: EdgeInsets.all(20),
                             shrinkWrap: true,
                             physics: NeverScrollableScrollPhysics(),
-                            itemCount: 4,
+                            itemCount: 3,
                             gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                              crossAxisCount: isPhone ? 1 : (isTablet ? 2 :  4),
+                              crossAxisCount: isPhone ? 1 : (isTablet ? 2 : 3),
                               mainAxisSpacing: 20,
                               crossAxisSpacing: 70,
-                              childAspectRatio: 1,
+                              childAspectRatio: 1.2,
                             ),
                             itemBuilder: (context, index) {
                               final items = [
@@ -210,11 +230,6 @@ class _FacilityDashScreenState extends State<FacilityDashScreen> with SingleTick
                                   'title': 'Soap Supply', 
                                   'icon': Icons.soap,
                                   'percentage': soapPercentage,
-                                },
-                                {
-                                  'title': 'System Status', 
-                                  'icon': Icons.dashboard,
-                                  'percentage': systemStatus,
                                 },
                                 
                               ];
@@ -289,7 +304,7 @@ class _FacilityDashScreenState extends State<FacilityDashScreen> with SingleTick
                                       ? Padding(
                                           padding: const EdgeInsets.only(top: 8.0),
                                           child: Text(
-                                            '45 people present',
+                                            '${(peoplePercentage * maxCapacity).toInt()} people present',
                                             style: GoogleFonts.poppins(
                                               fontSize: 12,
                                               fontWeight: FontWeight.bold,
@@ -302,45 +317,24 @@ class _FacilityDashScreenState extends State<FacilityDashScreen> with SingleTick
                                   title == "Water Supply" || title == "Soap Supply"
                                       ? TextButton(
                                         onPressed: () async {
-                                          // Send refill request to server
-                                          final success = await _api.sendRefillRequest(title);
+                                          final success = true;
                                           
-                                          if (success) {
-                                            // Add request to local RequestsManager
-                                            RequestsManager().addRequest(title);
-                                            
-                                            // Show success notification
-                                            ScaffoldMessenger.of(context).showSnackBar(
-                                              SnackBar(
-                                                content: Text('$title refill requested!'),
-                                                duration: Duration(seconds: 4),
-                                                behavior: SnackBarBehavior.floating,
-                                                backgroundColor: Colors.green,
-                                                
-                                                margin: EdgeInsets.only(
-                                                  bottom: MediaQuery.of(context).size.height - 150,
-                                                  right: 20,
-                                                  left: MediaQuery.of(context).size.width - 320,
-                                                ),
+                                          RequestsManager().addRequest(title);
+                                          
+                                          ScaffoldMessenger.of(context).showSnackBar(
+                                            SnackBar(
+                                              content: Text('$title refill requested!'),
+                                              duration: Duration(seconds: 4),
+                                              behavior: SnackBarBehavior.floating,
+                                              backgroundColor: Colors.green,
+                                              
+                                              margin: EdgeInsets.only(
+                                                bottom: MediaQuery.of(context).size.height - 150,
+                                                right: 20,
+                                                left: MediaQuery.of(context).size.width - 320,
                                               ),
-                                            );
-                                          } else {
-                                            // Show error notification
-                                            ScaffoldMessenger.of(context).showSnackBar(
-                                              SnackBar(
-                                                content: Text('Failed to send request. Try again.'),
-                                                duration: Duration(seconds: 3),
-                                                behavior: SnackBarBehavior.floating,
-                                                backgroundColor: Colors.red,
-                                                
-                                                margin: EdgeInsets.only(
-                                                  bottom: MediaQuery.of(context).size.height - 150,
-                                                  right: 20,
-                                                  left: MediaQuery.of(context).size.width - 320,
-                                                ),
-                                              ),
-                                            );
-                                          }
+                                            ),
+                                          );
                                         }, 
                                         child: Text("Request Refill"),
                                         style: TextButton.styleFrom(
@@ -352,20 +346,6 @@ class _FacilityDashScreenState extends State<FacilityDashScreen> with SingleTick
                                           ),
                                         ),
                                       )
-                                      : SizedBox.shrink(),
-                                  title== "System Status"
-                                      ? Padding(
-                                          padding: const EdgeInsets.only(top: 8.0),
-                                          child: Text(
-                                            'All sensors functional',
-                                            style: GoogleFonts.poppins(
-                                              fontSize: 12,
-                                              fontWeight: FontWeight.bold,
-                                              color: Color(0xFF94A3B8)
-                                            
-                                            ),
-                                          ),
-                                        )
                                       : SizedBox.shrink(),
                                   ],
                                 ),
@@ -399,17 +379,6 @@ class _FacilityDashScreenState extends State<FacilityDashScreen> with SingleTick
                                   childAspectRatio: 2.2,
                                 ),
                                 itemBuilder: (context, index) {
-                                  // Determine sanitation status
-                                  String sanitationStatus;
-                                  
-                                  if (index == 0) {
-                                    // Restroom 1 - dynamic data from API
-                                    sanitationStatus = systemStatus > 0.5 ? 'Clean' : 'Due for cleaning';
-                                  } else {
-                                    // Restrooms 2-4 - static data
-                                    sanitationStatus = 'No cleaning required';
-                                  }
-                                  
                                   return Container(
                                     decoration: BoxDecoration(
                                       color: cardBg,
@@ -441,7 +410,7 @@ class _FacilityDashScreenState extends State<FacilityDashScreen> with SingleTick
                                             ),
                                             SizedBox(height: 4),
                                             Text(
-                                              'Sanitation: $sanitationStatus',
+                                              'Sanitation: ${sanitationStatuses[index]}',
                                               style: GoogleFonts.poppins(
                                                 fontSize: 14,
                                                 color: Color(0xFF6B7280),
@@ -451,6 +420,10 @@ class _FacilityDashScreenState extends State<FacilityDashScreen> with SingleTick
                                             Center(
                                               child: TextButton(
                                                 onPressed: () {
+                                                  setState(() {
+                                                    sanitationStatuses[index] = 'Clean';
+                                                  });
+                                                  
                                                   ScaffoldMessenger.of(context).showSnackBar(
                                                     SnackBar(
                                                       content: Text('Restroom ${index + 1} marked as cleaned!', style: GoogleFonts.poppins(

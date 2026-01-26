@@ -4,8 +4,6 @@ import 'package:http/http.dart' as http;
 class Mcuapi {
   String apiurl = "http://192.168.4.1:5000";
 
-  // Stream that emits people percentage data only when it changes
-  // Expected format: SENS|POPULATION|50
   Stream<double> getPeoplePercentageStream() async* {
     double? previousValue;
     while (true) {
@@ -37,8 +35,6 @@ class Mcuapi {
     }
   }
 
-  // Stream that emits water percentage data only when it changes
-  // Expected format: SENS|WATER|30
   Stream<double> getWaterPercentageStream() async* {
     double? previousValue;
     while (true) {
@@ -70,8 +66,6 @@ class Mcuapi {
     }
   }
 
-  // Stream that emits soap percentage data only when it changes
-  // Expected format: SENS|SOAP|20
   Stream<double> getSoapPercentageStream() async* {
     double? previousValue;
     while (true) {
@@ -98,17 +92,14 @@ class Mcuapi {
         print('Error fetching soap percentage: $e');
         if (previousValue == null) {
           previousValue = 0.1;
-          yield 0.1;
+          yield 0.0;
         }
       }
     }
   }
 
-  // Send refill request
-  // Format: REQ|WATER or REQ|Soap
   Future<bool> sendRefillRequest(String type) async {
     try {
-      // Convert "Water Supply" to "WATER" and "Soap Supply" to "Soap"
       final supplyType = type.contains('Water') ? 'WATER' : 'Soap';
       final requestData = 'REQ|$supplyType';
       
