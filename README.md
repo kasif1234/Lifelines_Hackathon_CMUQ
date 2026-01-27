@@ -11,7 +11,7 @@ Hence, our solution creates a proactive service loop that prevents breakdowns. R
 
 To setup this project, two main systems are required to be initialized:
 
-1- Flutter-based Cross-platform Application: This serves as the main interface of the project. Your device needs to have flutter SDK installed in order to run the app, which can then be ran using VS Code. For the best experience, this application works best on desktop. Therefore, it is better to run the app on web browsers like Google Chrome or Microsoft Edge.
+1- Flutter-based Cross-platform Application: This serves as the main interface of the project. Your device needs to have flutter SDK installed in order to run the app, which can then be ran using VS Code. For the best experience, this application works best on desktop. Therefore, it is better to run the app on web browsers like Google Chrome or Microsoft Edge. To login to the admin portal, we have made the username and password "admin" and "admin123" respectively, for demo purposes.
 
 2- ESP32 Microcontroller Program: The microcontroller needs to have a program loaded on it using Arduino IDE, where the board's type is "TTGO LoRa32-OLED" when choosing the board on Arduino. As this program is specific to each microcontroller used, the port numbers mentioned at the beginning of the code will need to align with the microcontroller connected. To setup, begin by installing Arduino IDE, then install the ESP32 Library from the library section.
 
