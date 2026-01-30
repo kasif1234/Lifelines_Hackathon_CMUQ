@@ -70,6 +70,7 @@ void setup()
     pinMode(TRIG2, OUTPUT);
     pinMode(ECHO2, INPUT);
     pinMode(IRSENSOR, INPUT);
+    pinMode(IR2SENSOR, INPUT);
     digitalWrite(TRIG, LOW); 
     SPI.begin(SCK, MISO, MOSI, SS);
     LoRa.setPins(SS, RST, DIO0);
@@ -116,7 +117,7 @@ void loop() {
         Serial.print("Restroom access counter: ");
         Serial.println(counter2);
 
-    };
+    }
    
     if (!sensed) {
       if (currentIRState == HIGH) {
@@ -144,21 +145,37 @@ void loop() {
     if (now - lastTime >= sonicInterval){
       for (int i=0; i<5; i++){
         digitalWrite(TRIG, LOW);
-        digitalWrite(TRIG2, LOW);
+        
         delayMicroseconds(10);
         digitalWrite(TRIG, HIGH);
-        digitalWrite(TRIG2, HIGH);
+       
         delayMicroseconds(10);
         digitalWrite(TRIG, LOW);
-        digitalWrite(TRIG2, LOW);
+        
         t = pulseIn(ECHO , HIGH);
-        t2 = pulseIn(ECHO2 , HIGH);
+        
         distance = (t/2)*SOUND_SPEED ;
         average += distance;
-        distance2 = (t2/2)*SOUND_SPEED;
-        average2 += distance2;
+        
         delay(10);
       }
+            for (int i=0; i<5; i++){
+        digitalWrite(TRIG2, LOW);
+        
+        delayMicroseconds(10);
+        digitalWrite(TRIG2, HIGH);
+       
+        delayMicroseconds(10);
+        digitalWrite(TRIG2, LOW);
+        
+        t2 = pulseIn(ECHO2 , HIGH);
+        
+        distance2 = (t2/2)*SOUND_SPEED ;
+        average2 += distance2;
+        
+        delay(10);
+      }
+
       lastTime = now;
       average = average / 5;
       average2 = average2 / 5;

@@ -4,7 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
 
 import 'package:facilitytracker/widgets/sidebar.dart';
-import 'package:facilitytracker/models/requests_manager.dart';
+import 'package:facilitytracker/facilityScreen/requests.dart';
 
 class FacilityDashScreen extends StatefulWidget {
   const FacilityDashScreen({super.key});
@@ -332,7 +332,10 @@ class _FacilityDashScreenState extends State<FacilityDashScreen> {
                                     padding: const EdgeInsets.only(top: 10.0),
                                     child: TextButton(
                                       onPressed: () async {
-                                        RequestsManager().addRequest(title);
+                                        
+                                        await RequestsScreen.sendAutomatedMessage(
+                                          'Request for $title refill'
+                                        );
 
                                         if (!mounted) return;
                                         ScaffoldMessenger.of(context).showSnackBar(
@@ -433,7 +436,7 @@ class _FacilityDashScreenState extends State<FacilityDashScreen> {
                                           onPressed: () {
                                             setState(() {
                                               sanitationStatuses[index] = 'Clean';
-                                              // Update baseline for Restroom 1 when marked as clean
+                                              
                                               if (index == 0) {
                                                 restroom1BaselineUsage = restroom1Level;
                                               }

@@ -17,6 +17,7 @@ class _SensorsDataScreenState extends State<SensorsDataScreen> {
     'Population': false,
     'Water': false,
     'Soap': false,
+    'Pit Latrine': false,
     'RR1': false,
     'RR2': false,
     'RR3': false,
@@ -81,9 +82,9 @@ class _SensorsDataScreenState extends State<SensorsDataScreen> {
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
-    final isPhone = screenWidth < 800;
+    final isPhone = screenWidth < 650;
     final primaryColor = Color.fromARGB(255, 16, 134, 185);
-    final isTablet = screenWidth >= 800 && screenWidth < 1200;
+    final isTablet = screenWidth >= 650 && screenWidth < 1200;
     final cardBg = Colors.white;
 
     return Scaffold(
@@ -132,9 +133,9 @@ class _SensorsDataScreenState extends State<SensorsDataScreen> {
                             padding: EdgeInsets.all(20),
                             shrinkWrap: true,
                             physics: NeverScrollableScrollPhysics(),
-                            itemCount: 4,
+                            itemCount: 5,
                             gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                              crossAxisCount: isPhone ? 1 : (isTablet ? 2 :  4),
+                              crossAxisCount: isPhone ? 1 : (isTablet ? 2 :  5),
                               mainAxisSpacing: 20,
                               crossAxisSpacing: 30,
                               childAspectRatio: 0.75,
@@ -160,6 +161,12 @@ class _SensorsDataScreenState extends State<SensorsDataScreen> {
                                   'isMultiRoom': false,
                                 },
                                 {
+                                  'title': 'Pit Latrine Sensor', 
+                                  'icon': Icons.bathroom,
+                                  'statusKey': 'Pit Latrine',
+                                  'isMultiRoom': false,
+                                },
+                                {
                                   'title': 'Toilet Access Sensors', 
                                   'icon': Icons.wc,
                                   'statusKey': null,
@@ -171,7 +178,7 @@ class _SensorsDataScreenState extends State<SensorsDataScreen> {
                                     {'name': 'Restroom 4', 'statusKey': 'RR4'},
                                   ],
                                 },
-                               
+                                
                                 
                               ];
                               

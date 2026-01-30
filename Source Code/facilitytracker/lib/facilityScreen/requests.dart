@@ -1,41 +1,183 @@
+import 'dart:async';
 import 'package:facilitytracker/widgets/sidebar.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:facilitytracker/models/requests_manager.dart';
+import 'package:http/http.dart' as http;
 
 class RequestsScreen extends StatefulWidget {
   const RequestsScreen({super.key});
+
+  static List<Map<String, dynamic>> _messages = [];
+  static Timer? _globalTimer;
+  static int _unreadCount = 0;
+  static String _lastMessage = '';
+  static final List<Function()> _listeners = [];
+
+  static int getUnreadCount() => _unreadCount;
+  static void clearUnreadCount() {
+    _unreadCount = 0;
+    _notifyListeners();
+  }
+  
+  static void _notifyListeners() {
+    for (var listener in _listeners) {
+      listener();
+    }
+  }
+  
+  static void addListener(Function() listener) {
+    _listeners.add(listener);
+  }
+  
+  static void removeListener(Function() listener) {
+    _listeners.remove(listener);
+  }
+  
+  static void startGlobalFetching() {
+    _globalTimer?.cancel();
+    _globalTimer = Timer.periodic(const Duration(seconds: 2), (_) => _fetchMessageStatic());
+  }
+  
+  static void stopGlobalFetching() {
+    _globalTimer?.cancel();
+    _globalTimer = null;
+  }
+  
+  static Future<void> _fetchMessageStatic() async {
+    try {
+      final response = await http
+          .get(Uri.parse("http://192.168.4.1/fromadmin"))
+          .timeout(const Duration(seconds: 3));
+
+      if (response.statusCode != 200) return;
+
+      final messageText = response.body.trim();
+      if (messageText.isEmpty || messageText == _lastMessage) return;
+
+      _lastMessage = messageText;
+      final now = DateTime.now();
+      final hour = now.hour > 12 ? now.hour - 12 : (now.hour == 0 ? 12 : now.hour);
+      final minute = now.minute.toString().padLeft(2, '0');
+      final period = now.hour >= 12 ? 'PM' : 'AM';
+      final timeString = '$hour:$minute $period';
+
+      _messages.add({
+        'message': messageText,
+        'time': timeString,
+        'timestamp': now,
+        'isFromAdmin': true,
+        'isAutomated': false,
+      });
+      
+      _unreadCount++;
+      _notifyListeners();
+    } catch (e) {
+      // Silently fail
+    }
+  }
+
+  // Static method for automated messages from dashboard
+  static Future<void> sendAutomatedMessage(String messageText) async {
+    final now = DateTime.now();
+    final hour = now.hour > 12 ? now.hour - 12 : (now.hour == 0 ? 12 : now.hour);
+    final minute = now.minute.toString().padLeft(2, '0');
+    final period = now.hour >= 12 ? 'PM' : 'AM';
+    final timeString = '$hour:$minute $period';
+    
+    // Add message to static list
+    _messages.add({
+      'message': messageText,
+      'time': timeString,
+      'timestamp': now,
+      'isFromAdmin': false,
+      'isAutomated': true,
+    });
+    
+    // Send to server
+    try {
+      await http.post(
+        Uri.parse("http://192.168.4.1/sendtoadmin"),
+        body: messageText,
+      ).timeout(const Duration(seconds: 3));
+    } catch (e) {
+      // Silently fail
+    }
+  }
 
   @override
   State<RequestsScreen> createState() => _RequestsScreenState();
 }
 
 class _RequestsScreenState extends State<RequestsScreen> {
-  final RequestsManager _requestsManager = RequestsManager();
-
-  List<Map<String, dynamic>> dailyTasks = [
-    {'title': 'Check supply of water to restrooms', 'done': false, 'time': '9:00 AM'},
-    {'title': 'Inspect soap dispensers in restrooms', 'done': false, 'time': '10:00 AM'},
-    {'title': 'Clean restroom facilities', 'done': false, 'time': '11:00 AM'},
-    {'title': 'Review sensor reports', 'done': false, 'time': '2:00 PM'},
-    {'title': 'Restock paper supplies', 'done': false, 'time': '3:00 PM'},
-  ];
+  final ScrollController _scrollController = ScrollController();
+  final TextEditingController _messageController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
-    _requestsManager.addListener(_onRequestsChanged);
+    RequestsScreen.clearUnreadCount();
+    RequestsScreen.startGlobalFetching();
+    
+    // Scroll to bottom when new messages arrive
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_scrollController.hasClients) {
+        _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
+      }
+    });
   }
 
   @override
   void dispose() {
-    _requestsManager.removeListener(_onRequestsChanged);
+    _scrollController.dispose();
+    _messageController.dispose();
     super.dispose();
   }
 
-  void _onRequestsChanged() {
-    setState(() {});
+  Future<void> _sendMessage() async {
+    if (_messageController.text.trim().isEmpty) return;
+    
+    final messageText = _messageController.text.trim();
+    final now = DateTime.now();
+    final hour = now.hour > 12 ? now.hour - 12 : (now.hour == 0 ? 12 : now.hour);
+    final minute = now.minute.toString().padLeft(2, '0');
+    final period = now.hour >= 12 ? 'PM' : 'AM';
+    final timeString = '$hour:$minute $period';
+    
+    // Add message to UI immediately
+    setState(() {
+      RequestsScreen._messages.add({
+        'message': messageText,
+        'time': timeString,
+        'timestamp': now,
+        'isFromAdmin': false,
+        'isAutomated': false,
+      });
+      _messageController.clear();
+    });
+    
+    // Auto-scroll to bottom
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_scrollController.hasClients) {
+        _scrollController.animateTo(
+          _scrollController.position.maxScrollExtent,
+          duration: Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      }
+    });
+    
+    // Send to server
+    try {
+      await http.post(
+        Uri.parse("http://192.168.4.1/sendtoadmin"),
+        body: messageText,
+      ).timeout(const Duration(seconds: 3));
+    } catch (e) {
+      // Silently fail
+    }
   }
+
+
 
   @override
   Widget build(BuildContext context) {
@@ -44,342 +186,290 @@ class _RequestsScreenState extends State<RequestsScreen> {
     final primaryColor = Color.fromARGB(255, 16, 134, 185);
 
     return Scaffold(
-          backgroundColor: Colors.white,
-          appBar: AppBar(
-            title: Text(
-              "Tasks & Requests",
-              style: GoogleFonts.jetBrainsMono(
-                fontSize: 24,
-                fontWeight: FontWeight.w600,
-                color: Colors.white,
-              ),
+      backgroundColor: Colors.white,
+      appBar: AppBar(
+        title: Text(
+          "Chat",
+          style: GoogleFonts.jetBrainsMono(
+            fontSize: 24,
+            fontWeight: FontWeight.w600,
+            color: Colors.white,
+          ),
+        ),
+        centerTitle: true,
+        leading: isPhone
+            ? IconButton(
+                icon: Icon(Icons.menu, color: Colors.white),
+                onPressed: () {
+                  Scaffold.of(context).openDrawer();
+                },
+              )
+            : null,
+        actions: [
+          if (RequestsScreen._messages.isNotEmpty)
+            IconButton(
+              icon: Icon(Icons.delete_outline, color: Colors.white),
+              tooltip: 'Clear messages',
+              onPressed: () {
+                showDialog(
+                  context: context,
+                  builder: (context) => AlertDialog(
+                    title: Text('Clear Messages'),
+                    content: Text('Are you sure you want to clear all messages?'),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(context),
+                        child: Text('Cancel'),
+                      ),
+                      TextButton(
+                        onPressed: () {
+                          setState(() {
+                            RequestsScreen._messages.clear();
+                            RequestsScreen._lastMessage = '';
+                          });
+                          Navigator.pop(context);
+                        },
+                        child: Text('Clear', style: TextStyle(color: Colors.red)),
+                      ),
+                    ],
+                  ),
+                );
+              },
             ),
-            centerTitle: true,
-            leading: isPhone
-                ? IconButton(
-                    icon: Icon(Icons.menu, color: Colors.white),
-                    onPressed: () {
-                      Scaffold.of(context).openDrawer();
-                    },
-                  )
-                : null,
-            toolbarHeight: 80,
-            backgroundColor: primaryColor,
-            elevation: 0,
-            flexibleSpace: Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [primaryColor, Color.fromARGB(255, 70, 229, 184)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-              ),
+        ],
+        toolbarHeight: 80,
+        backgroundColor: primaryColor,
+        elevation: 0,
+        flexibleSpace: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [primaryColor, Color.fromARGB(255, 70, 229, 184)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
             ),
           ),
-          drawer: isPhone ? Drawer(child: Sidebar()) : null,
-          body: SafeArea(
-            child: Row(
-              children: [
-                if (!isPhone) Sidebar(),
-                Expanded(
-                  child: SingleChildScrollView(
-                    child: Padding(
-                      padding: const EdgeInsets.all(24.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            "Daily Tasks",
-                            style: GoogleFonts.poppins(
-                              fontSize: 28,
-                              fontWeight: FontWeight.bold,
-                              color: primaryColor,
-                            ),
-                          ),
-                          SizedBox(height: 8),
-                          Text(
-                            "Complete your daily facility management tasks",
-                            style: GoogleFonts.poppins(
-                              fontSize: 14,
-                              color: Color(0xFF64748B),
-                            ),
-                          ),
-                          SizedBox(height: 20),
-                          
-                          // Daily Tasks List
-                          ListView.builder(
-                            shrinkWrap: true,
-                            physics: NeverScrollableScrollPhysics(),
-                            itemCount: dailyTasks.length,
-                            itemBuilder: (context, index) {
-                              final task = dailyTasks[index];
-                              return Container(
-                                margin: EdgeInsets.only(bottom: 12),
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(
-                                    color: task['done'] 
-                                        ? Colors.green.withOpacity(0.3)
-                                        : Color(0xFFE2E8F0),
-                                    width: 2,
-                                  ),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: primaryColor.withOpacity(0.05),
-                                      blurRadius: 10,
-                                      offset: Offset(0, 2),
-                                    ),
-                                  ],
+        ),
+      ),
+      drawer: isPhone ? Drawer(child: Sidebar()) : null,
+      body: SafeArea(
+        child: Row(
+          children: [
+            if (!isPhone) Sidebar(),
+            Expanded(
+              child: Column(
+                children: [
+                  // Chat messages area
+                  Expanded(
+                    child: RequestsScreen._messages.isEmpty
+                        ? Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.chat_bubble_outline,
+                                  size: 64,
+                                  color: Color(0xFF94A3B8),
                                 ),
-                                child: ListTile(
-                                  contentPadding: EdgeInsets.symmetric(
+                                SizedBox(height: 16),
+                                Text(
+                                  "No messages yet",
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 18,
+                                    color: Color(0xFF64748B),
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                                SizedBox(height: 8),
+                                Text(
+                                  "Start a conversation with admin",
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 14,
+                                    color: Color(0xFF94A3B8),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          )
+                        : ListView.builder(
+                            controller: _scrollController,
+                            padding: EdgeInsets.all(16),
+                            itemCount: RequestsScreen._messages.length,
+                            itemBuilder: (context, index) {
+                              final message = RequestsScreen._messages[index];
+                              final isFromAdmin = message['isFromAdmin'] == true;
+                              final isAutomated = message['isAutomated'] == true;
+                              
+                              return Align(
+                                alignment: isFromAdmin 
+                                    ? Alignment.centerLeft 
+                                    : Alignment.centerRight,
+                                child: Container(
+                                  constraints: BoxConstraints(
+                                    maxWidth: screenWidth * 0.6,
+                                  ),
+                                  margin: EdgeInsets.only(bottom: 12),
+                                  padding: EdgeInsets.symmetric(
                                     horizontal: 16,
-                                    vertical: 8,
+                                    vertical: 12,
                                   ),
-                                  leading: Container(
-                                    width: 40,
-                                    height: 40,
-                                    decoration: BoxDecoration(
-                                      color: task['done']
-                                          ? Colors.green.withOpacity(0.1)
-                                          : primaryColor.withOpacity(0.1),
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                    child: Icon(
-                                      task['done'] 
-                                          ? Icons.check_circle 
-                                          : Icons.radio_button_unchecked,
-                                      color: task['done'] 
-                                          ? Colors.green 
-                                          : primaryColor,
-                                    ),
+                                  decoration: BoxDecoration(
+                                    color: isFromAdmin
+                                        ? Color(0xFFF1F5F9)
+                                        : primaryColor,
+                                    borderRadius: BorderRadius.circular(16),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withOpacity(0.05),
+                                        blurRadius: 4,
+                                        offset: Offset(0, 2),
+                                      ),
+                                    ],
                                   ),
-                                  title: Text(
-                                    task['title'],
-                                    style: GoogleFonts.poppins(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w600,
-                                      color: task['done']
-                                          ? Color(0xFF94A3B8)
-                                          : Color(0xFF1E293B),
-                                      decoration: task['done']
-                                          ? TextDecoration.lineThrough
-                                          : TextDecoration.none,
-                                    ),
-                                  ),
-                                  subtitle: Text(
-                                    task['time'],
-                                    style: GoogleFonts.poppins(
-                                      fontSize: 12,
-                                      color: Color(0xFF94A3B8),
-                                    ),
-                                  ),
-                                  trailing: !task['done']
-                                      ? ElevatedButton(
-                                          onPressed: () {
-                                            setState(() {
-                                              dailyTasks[index]['done'] = true;
-                                            });
-                                            ScaffoldMessenger.of(context).showSnackBar(
-                                              SnackBar(
-                                                content: Text('Task marked as done!'),
-                                                duration: Duration(seconds: 2),
-                                                backgroundColor: Colors.green,
-                                              ),
-                                            );
-                                          },
-                                          style: ElevatedButton.styleFrom(
-                                            backgroundColor: primaryColor,
-                                            foregroundColor: Colors.white,
-                                            padding: EdgeInsets.symmetric(
-                                              horizontal: 20,
-                                              vertical: 10,
-                                            ),
-                                            shape: RoundedRectangleBorder(
-                                              borderRadius: BorderRadius.circular(8),
-                                            ),
-                                          ),
-                                          child: Text(
-                                            "Mark Done",
-                                            style: GoogleFonts.poppins(
-                                              fontSize: 12,
-                                              fontWeight: FontWeight.w600,
-                                            ),
-                                          ),
-                                        )
-                                      : Container(
-                                          padding: EdgeInsets.symmetric(
-                                            horizontal: 12,
-                                            vertical: 6,
-                                          ),
-                                          decoration: BoxDecoration(
-                                            color: Colors.green.withOpacity(0.1),
-                                            borderRadius: BorderRadius.circular(20),
-                                          ),
-                                          child: Text(
-                                            "Completed",
-                                            style: GoogleFonts.poppins(
-                                              fontSize: 12,
-                                              fontWeight: FontWeight.w600,
-                                              color: Colors.green,
-                                            ),
-                                          ),
+                                  child: Column(
+                                    crossAxisAlignment: isFromAdmin
+                                        ? CrossAxisAlignment.start
+                                        : CrossAxisAlignment.end,
+                                    children: [
+                                      Text(
+                                        isFromAdmin ? 'Admin' : (isAutomated ? 'You (Automated Message)' : 'You'),
+                                        style: GoogleFonts.poppins(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w600,
+                                          color: isFromAdmin
+                                              ? Color(0xFF64748B)
+                                              : Colors.white.withOpacity(0.9),
                                         ),
+                                      ),
+                                      SizedBox(height: 4),
+                                      Text(
+                                        message['message'],
+                                        style: GoogleFonts.poppins(
+                                          fontSize: 14,
+                                          color: isFromAdmin
+                                              ? Color(0xFF1E293B)
+                                              : Colors.white,
+                                        ),
+                                      ),
+                                      SizedBox(height: 4),
+                                      Text(
+                                        message['time'],
+                                        style: GoogleFonts.poppins(
+                                          fontSize: 10,
+                                          color: isFromAdmin
+                                              ? Color(0xFF94A3B8)
+                                              : Colors.white.withOpacity(0.7),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                                 ),
                               );
                             },
                           ),
-                          
-                          SizedBox(height: 40),
-                          
-                          // Refill Requests Section
-                          Text(
-                            "Refill Requests",
-                            style: GoogleFonts.poppins(
-                              fontSize: 28,
-                              fontWeight: FontWeight.bold,
-                              color: primaryColor,
-                            ),
-                          ),
-                          SizedBox(height: 8),
-                          Text(
-                            "Manage supply refill requests from the dashboard",
-                            style: GoogleFonts.poppins(
-                              fontSize: 14,
-                              color: Color(0xFF64748B),
-                            ),
-                          ),
-                          SizedBox(height: 20),
-                          
-                          // Refill Requests List
-                          _requestsManager.refillRequests.isEmpty
-                              ? Container(
-                                  padding: EdgeInsets.all(32),
-                                  decoration: BoxDecoration(
-                                    color: Color(0xFFF8FAFC),
-                                    borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(
-                                      color: Color(0xFFE2E8F0),
-                                    ),
-                                  ),
-                                  child: Center(
-                                    child: Column(
-                                      children: [
-                                        Icon(
-                                          Icons.inbox_outlined,
-                                          size: 48,
-                                          color: Color(0xFF94A3B8),
-                                        ),
-                                        SizedBox(height: 12),
-                                        Text(
-                                          "No refill requests yet",
-                                          style: GoogleFonts.poppins(
-                                            fontSize: 16,
-                                            color: Color(0xFF64748B),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                )
-                              : ListView.builder(
-                                  shrinkWrap: true,
-                                  physics: NeverScrollableScrollPhysics(),
-                                  itemCount: _requestsManager.refillRequests.length,
-                                  itemBuilder: (context, index) {
-                                    final request = _requestsManager.refillRequests[index];
-                                    final isPending = request['status'] == 'Pending';
-                                    
-                                    return Container(
-                                      margin: EdgeInsets.only(bottom: 12),
-                                      decoration: BoxDecoration(
-                                        color: Colors.white,
-                                        borderRadius: BorderRadius.circular(12),
-                                        border: Border.all(
-                                          color: Color(0xFFE2E8F0),
-                                          width: 2,
-                                        ),
-                                        boxShadow: [
-                                          BoxShadow(
-                                            color: primaryColor.withOpacity(0.05),
-                                            blurRadius: 10,
-                                            offset: Offset(0, 2),
-                                          ),
-                                        ],
-                                      ),
-                                      child: ListTile(
-                                        contentPadding: EdgeInsets.symmetric(
-                                          horizontal: 16,
-                                          vertical: 8,
-                                        ),
-                                        leading: Container(
-                                          width: 40,
-                                          height: 40,
-                                          decoration: BoxDecoration(
-                                            color: request['type'] == 'Water Supply'
-                                                ? Colors.blue.withOpacity(0.1)
-                                                : Colors.purple.withOpacity(0.1),
-                                            borderRadius: BorderRadius.circular(8),
-                                          ),
-                                          child: Icon(
-                                            request['type'] == 'Water Supply'
-                                                ? Icons.water_drop
-                                                : Icons.soap,
-                                            color: request['type'] == 'Water Supply'
-                                                ? Colors.blue
-                                                : Colors.purple,
-                                          ),
-                                        ),
-                                        title: Text(
-                                          request['type'],
-                                          style: GoogleFonts.poppins(
-                                            fontSize: 16,
-                                            fontWeight: FontWeight.w600,
-                                            color: Color(0xFF1E293B),
-                                          ),
-                                        ),
-                                        subtitle: Text(
-                                          'Requested at ${request['time']}',
-                                          style: GoogleFonts.poppins(
-                                            fontSize: 12,
-                                            color: Color(0xFF94A3B8),
-                                          ),
-                                        ),
-                                        trailing: Container(
-                                          padding: EdgeInsets.symmetric(
-                                            horizontal: 12,
-                                            vertical: 6,
-                                          ),
-                                          decoration: BoxDecoration(
-                                            color: isPending
-                                                ? Color(0xFFF59E0B).withOpacity(0.1)
-                                                : primaryColor.withOpacity(0.1),
-                                            borderRadius: BorderRadius.circular(20),
-                                          ),
-                                          child: Text(
-                                            request['status'],
-                                            style: GoogleFonts.poppins(
-                                              fontSize: 12,
-                                              fontWeight: FontWeight.w600,
-                                              color: isPending
-                                                  ? Color(0xFFF59E0B)
-                                                  : primaryColor,
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                    );
-                                  },
-                                ),
-                        ],
+                  ),
+                  
+                  // Message input area
+                  Container(
+                    padding: EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      border: Border(
+                        top: BorderSide(
+                          color: Color(0xFFE2E8F0),
+                          width: 1,
+                        ),
                       ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.05),
+                          blurRadius: 10,
+                          offset: Offset(0, -2),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: _messageController,
+                            decoration: InputDecoration(
+                              hintText: 'Type your message...',
+                              hintStyle: GoogleFonts.poppins(
+                                color: Color(0xFF94A3B8),
+                              ),
+                              filled: true,
+                              fillColor: Color(0xFFF8FAFC),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(
+                                  color: Color(0xFFE2E8F0),
+                                ),
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(
+                                  color: Color(0xFFE2E8F0),
+                                ),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(
+                                  color: primaryColor,
+                                  width: 2,
+                                ),
+                              ),
+                              contentPadding: EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 12,
+                              ),
+                            ),
+                            onSubmitted: (_) => _sendMessage(),
+                            maxLines: null,
+                            textCapitalization: TextCapitalization.sentences,
+                          ),
+                        ),
+                        SizedBox(width: 12),
+                        Container(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [primaryColor, Color.fromARGB(255, 70, 229, 184)],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                            borderRadius: BorderRadius.circular(12),
+                            boxShadow: [
+                              BoxShadow(
+                                color: primaryColor.withOpacity(0.3),
+                                blurRadius: 8,
+                                offset: Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: Material(
+                            color: Colors.transparent,
+                            child: InkWell(
+                              onTap: _sendMessage,
+                              borderRadius: BorderRadius.circular(12),
+                              child: Padding(
+                                padding: EdgeInsets.all(12),
+                                child: Icon(
+                                  Icons.send_rounded,
+                                  color: Colors.white,
+                                  size: 24,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
+          ],
+        ),
+      ),
     );
   }
 }
